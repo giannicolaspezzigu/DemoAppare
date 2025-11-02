@@ -238,6 +238,114 @@ function ensureKpiStyleLegend(){
   if (medianWrap) head.insertBefore(legend, medianWrap); else head.appendChild(legend);
 }
 
+
+// ---- Selettore AZIENDA (dinamico dal RAW) ----
+function ensureAziendaSelector(){
+  try{
+    // 1) Trova il contenitore *esterno ai grafici* dove prima c'era la label "Goia Silvia"
+    //    Tentativi in ordine: id noto, data-role, classi comuni, poi fallback a match testuale esatto.
+    function findLabelHost(){
+      const idCandidates = ['aziendaLabel','aziendaTitle','aziendaName','aziendaBadge'];
+      for (const id of idCandidates){
+        const el = document.getElementById(id);
+        if (el) return el;
+      }
+      const role = document.querySelector('[data-role="azienda-label"]');
+      if (role) return role;
+      const cls = document.querySelector('.azienda-label, .aziendaName, .azienda, .az-label');
+      if (cls) return cls;
+      // Fallback: primo heading/span/div che contenga esattamente il nome corrente
+      const pool = document.querySelectorAll('h1,h2,h3,h4,span,strong,div');
+      for (const el of pool){
+        const t = (el.textContent || '').trim();
+        if (t === state.azienda) return el;
+      }
+      // Fallback finale: barra superiore se presente
+      const topbar = document.getElementById('topbar') || document.querySelector('.topbar,.header,.toolbar');
+      if (topbar) return topbar;
+      return null;
+    }
+
+    const host = findLabelHost();
+    if (!host) return;
+
+    // 2) Crea o recupera il <select>
+    let sel = document.getElementById('aziendaSelect');
+    if (!sel){
+      sel = document.createElement('select');
+      sel.id = 'aziendaSelect';
+      sel.style.fontSize = '13px';
+      sel.style.padding = '4px 8px';
+      sel.style.border = '1px solid #cbd5e1';
+      sel.style.borderRadius = '8px';
+      sel.style.background = '#fff';
+      sel.style.color = '#0f172a';
+      sel.title = 'Seleziona azienda';
+
+      // Se l'host conteneva solo il testo "Goia Silvia", lo sostituiamo con un wrapper label+select
+      const wrap = document.createElement('span');
+      wrap.style.display = 'inline-flex';
+      wrap.style.gap = '8px';
+      wrap.style.alignItems = 'center';
+
+      // Prova a capire se era solo testo o c'erano altri nodi
+      const hadOnlyText = host.childNodes.length === 1 && host.firstChild && host.firstChild.nodeType === 3;
+      if (hadOnlyText){
+        const lab = document.createElement('span');
+        lab.textContent = 'Azienda:';
+        lab.style.fontWeight = '600';
+        lab.style.color = '#334155';
+        wrap.appendChild(lab);
+        wrap.appendChild(sel);
+        host.textContent = '';
+        host.appendChild(wrap);
+      } else {
+        // Altrimenti, inseriamo il select subito dopo il primo nodo (lasciando eventuali icone/testi)
+        host.appendChild(sel);
+        host.style.display = host.style.display || 'inline-flex';
+        host.style.gap = host.style.gap || '8px';
+        host.style.alignItems = host.style.alignItems || 'center';
+      }
+    }
+
+    // 3) Popola aziende uniche da RAW
+    const set = new Set();
+    for (const r of RAW){ if (r && r.Azienda) set.add(String(r.Azienda)); }
+    const list = Array.from(set).sort((a,b)=>a.localeCompare(b,'it',{sensitivity:'base'}));
+
+    // Mantieni selezione corrente se possibile
+    const current = state.azienda && list.includes(state.azienda) ? state.azienda : (list[0] || state.azienda);
+    state.azienda = current;
+
+    // Ricostruisci options solo se differiscono
+    const existing = Array.from(sel.options).map(o=>o.value);
+    const same = existing.length===list.length && existing.every((v,i)=>v===list[i]);
+    if (!same){
+      sel.innerHTML = '';
+      for (const name of list){
+        const opt = document.createElement('option');
+        opt.value = name;
+        opt.textContent = name;
+        sel.appendChild(opt);
+      }
+    }
+    sel.value = state.azienda;
+
+    // 4) Change handler
+    if (!sel._bound){
+      sel.addEventListener('change', ()=>{
+        state.azienda = sel.value;
+        const rows = rowsForKpi(RAW, state.currentKpi);
+        updatePR(rows); updateKPI(rows); updateHistogram(rows);
+        scheduleSync();
+      });
+      sel._bound = true;
+    }
+  }catch(e){ console.warn('ensureAziendaSelector error', e); }
+}
+
+
+
 // ---- Update routines ----
 function updatePR(rows){
   const by = getYMMap(rows, state.currentKpi);
@@ -411,6 +519,7 @@ function updateKPI(rows){
   kpiChart.update('none');
 
   ensureKpiStyleLegend();
+  ensureAziendaSelector();
   scheduleSync();
 }
 
@@ -493,6 +602,7 @@ function updateHistogram(rows){
 (function init(){
   try{ const seedTag=document.getElementById('seed'); if(seedTag&&seedTag.textContent){ RAW = JSON.parse(seedTag.textContent); } }catch(e){ console.warn('No seed parsed', e); }
   ensureCharts();
+  ensureAziendaSelector();
 
   const kSel = document.getElementById('indicatore');
   if (kSel){
@@ -554,10 +664,12 @@ function updateHistogram(rows){
     optCustom.textContent = 'Intervallo personalizzato';
     preset.appendChild(optCustom);
 
-    // default: ultima lattazione
-    const last = lacs[lacs.length - 1];
-    preset.value = 'lac:' + last;
-    state.histPeriod = { type: 'lactation', start: last };
+    // default: 2024-25 se presente, altrimenti ultima lattazione
+    const preferred = 2024;
+    const hasPreferred = lacs.includes(preferred);
+    const def = hasPreferred ? preferred : lacs[lacs.length - 1];
+    preset.value = 'lac:' + def;
+    state.histPeriod = { type: 'lactation', start: def };
     if (wrap) wrap.style.display = 'none';
   }
 
@@ -603,6 +715,7 @@ function updateHistogram(rows){
   }
 
   rebuildLactationMenu();
+  updatePeriodUIFromState();
 
   if (preset) {
     preset.addEventListener('change', () => {
@@ -656,6 +769,7 @@ function updateHistogram(rows){
 
   // Legenda + sync
   ensureKpiStyleLegend();
+  ensureAziendaSelector();
   scheduleSync();
 
   window.addEventListener('resize', scheduleSync);
