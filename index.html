@@ -25,7 +25,7 @@
         </svg>
         <strong>AgriVet</strong>
       </div>
-      <div class="brand-badge">Ä</div>
+      <div class="brand-badge">A</div>
       <div class="brand-title">appàre</div>
     </div>
     <nav class="nav">
@@ -43,7 +43,11 @@
   <main class="main">
     <div class="topbar"><div class="topbar-inner">
       <div class="breadcrumbs"><span class="muted">Produzioni Animali</span> › Qualità del Latte</div>
-      <div class="actions"><strong>Demo</strong></div>
+      
+      <div class="actions">
+    <button id="demo" data-credit="demo" class="select compact" title="Credit">Demo</button>
+    </div>
+      
     </div></div>
 
     <section class="container">
@@ -86,15 +90,17 @@
               <div>
                 <div class="card-title">Posizionamento percentile (PR) per mese</div>
                 <div class="legend muted">
+               <!---
                   <span class="key-2023"><i class="swatch"></i>2023</span>
                   <span class="key-2024"><i class="swatch"></i>2024</span>
                   <span class="key-2025"><i class="swatch"></i>2025</span>
+                -->
                 </div>
               </div>
               <div class="year-boxes">
-                <label><input type="checkbox" id="yr2023" checked> 2023</label>
-                <label><input type="checkbox" id="yr2024" checked> 2024</label>
-                <label><input type="checkbox" id="yr2025" checked> 2025</label>
+                <label><input type="checkbox" id="yr2023" checked> <span id="yr2023Lbl">2023-24</span></label>
+                <label><input type="checkbox" id="yr2024" checked> <span id="yr2024Lbl">2024-25</span></label>
+                <label><input type="checkbox" id="yr2025" checked> <span id="yr2025Lbl">2025-26</span></label>
               </div>
             </div>
             <div class="explain muted">
@@ -106,8 +112,9 @@
             <div class="subhead">
               <div class="card-title">Valore KPI: Azienda vs mediana del gruppo</div>
               <div class="legend muted">
-                <span class="key-az"><i class="swatch"></i>Azienda</span>
+              <!-- <span class="key-az"><i class="swatch"></i>Azienda</span>
                 <span class="key-med"><i class="swatch"></i>Mediana gruppo</span>
+              --> 
               </div>
             </div>
             <div class="chart small" id="kpiChartHost"><canvas></canvas></div>
