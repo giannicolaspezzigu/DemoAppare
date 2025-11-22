@@ -1,4 +1,4 @@
-// mieiDati.js — Vista "I miei dati": solo azienda, punti giornalieri, nessuna mediana
+﻿// mieiDati.js â€” Vista "I miei dati": solo azienda, punti giornalieri, nessuna mediana
 (function () {
   //const MONTHS_LACT = ['Set','Ott','Nov','Dic','Gen','Feb','Mar','Apr','Mag','Giu','Lug','Ago'];
   const MONTHS_LACT = ['Ott','Nov','Dic','Gen','Feb','Mar','Apr','Mag','Giu','Lug','Ago','Set'];
@@ -7,7 +7,7 @@
 
   let chart = null;                 // istanza Chart.js unica
   let bound = false;                // per evitare doppi listener
-  let lastSig = '';                 // firma per il polling (azienda|kpi|visibilità|nRows)
+  let lastSig = '';                 // firma per il polling (azienda|kpi|visibilitÃ |nRows)
 
   // ---------- utils ----------
   const daysInMonth = (y,m) => new Date(y, m+1, 0).getDate();
@@ -40,7 +40,43 @@
 
   function rowsForCurrent() {
     const az = getAzienda();
-    const aliases = getAliases(getKpi());
+    const kpiSel = getKpi();
+
+    // KPI derivato: rapporto grassi/proteine
+    if (kpiSel === 'rapporto') {
+      const fats = new Map();      // dateKey -> array di grassi
+      const prots = new Map();     // dateKey -> array di proteine
+      const src = Array.isArray(window.RAW) ? window.RAW : [];
+      for (const r of src) {
+        if (!r || !r.Data) continue;
+        if (String(r.Azienda || '') !== az) continue;
+        const k = String(r.KPI || '').toLowerCase();
+        const v = Number(r.Valore);
+        if (!isFinite(v)) continue;
+        const d = new Date(r.Data);
+        if (isNaN(+d)) continue;
+        const key = d.toISOString().slice(0,10); // usa la data (yyyy-mm-dd)
+        if (k === 'grassi' || k === 'fat' || k === '% fat') {
+          if (!fats.has(key)) fats.set(key, { values: [], date: d });
+          fats.get(key).values.push(v);
+        } else if (k === 'proteine' || k === 'protein' || k === '% prot') {
+          if (!prots.has(key)) prots.set(key, { values: [], date: d });
+          prots.get(key).values.push(v);
+        }
+      }
+      const out = [];
+      for (const [key, g] of fats.entries()) {
+        if (!prots.has(key)) continue;
+        const p = prots.get(key);
+        const gAvg = g.values.reduce((a,b)=>a+b,0) / g.values.length;
+        const pAvg = p.values.reduce((a,b)=>a+b,0) / p.values.length;
+        if (pAvg === 0 || !isFinite(gAvg) || !isFinite(pAvg)) continue;
+        out.push({ date: g.date, value: gAvg / pAvg });
+      }
+      return out;
+    }
+
+    const aliases = getAliases(kpiSel);
     const src = Array.isArray(window.RAW) ? window.RAW : [];
     const out = [];
     for (const r of src) {
@@ -83,7 +119,7 @@ function yearsFromData(byMap) {
 function buildYearBoxesForYears(years) {
   const host = document.getElementById('md-year-boxes');
   if (!host) return [];
-  // salva stato precedente (se c’è)
+  // salva stato precedente (se câ€™Ã¨)
   const prev = new Set(
     Array.from(host.querySelectorAll('input[type="checkbox"]'))
       .filter(i => i.checked)
@@ -109,7 +145,7 @@ function buildYearBoxesForYears(years) {
     chk.type = 'checkbox';
     chk.id = id;
     chk.value = String(yStart);
-    // ripristina spunte; se è il primo render → seleziona solo l’ultima
+    // ripristina spunte; se Ã¨ il primo render â†’ seleziona solo lâ€™ultima
     chk.checked = prev.size ? prev.has(yStart) : (yStart === Math.max(...years));
 
     const dot = document.createElement('span');
@@ -167,7 +203,7 @@ function buildYearBoxesFromApp() {
   const host = document.getElementById('md-year-boxes');
   if (!host || !window.lastThreeLactations || !window.lactationLabel) return [];
 
- // 🔹 salva stato precedente (se esiste)
+ // ðŸ”¹ salva stato precedente (se esiste)
 const prev = new Set(
    Array.from(host.querySelectorAll('input[type="checkbox"]'))
    .filter(i => i.checked)
@@ -197,7 +233,7 @@ const prev = new Set(
     chk.id = id;
     chk.value = String(yStart);
 
-    // seleziona di default solo l'ultima lattazione (la più recente)
+    // seleziona di default solo l'ultima lattazione (la piÃ¹ recente)
     chk.checked = prev.size ? prev.has(yStart) : (yStart === Math.max(...lacStarts));
 
    
@@ -272,14 +308,14 @@ function activeYearsMD() {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    // distruggi eventuale chart associato a questo canvas (fix “Canvas is already in use”)
+    // distruggi eventuale chart associato a questo canvas (fix â€œCanvas is already in useâ€)
     const existing = Chart.getChart(canvas);
     if (existing) existing.destroy();
     if (chart) { chart.destroy(); chart = null; }
 
     //const active = getActiveYears();
     const active = activeYearsMD();
-    // Nessuna lattazione selezionata → svuota il grafico e termina
+    // Nessuna lattazione selezionata â†’ svuota il grafico e termina
     if (!active.size) {
       const canvas = document.getElementById('md-chart');
       if (canvas) {
@@ -336,11 +372,14 @@ function activeYearsMD() {
     }
 
 
-    // usa le stesse unità di app.js
-    const unit = (window.KPI_UNITS && KPI_UNITS[getKpi()]) || '';
+    // usa le stesse unitÃ  di app.js
+    const kpiSel = getKpi();
+    const unit = (window.KPI_UNITS && KPI_UNITS[kpiSel]) || '';
+    const limitLine = (kpiSel === 'cellule') ? 1500 : (kpiSel === 'carica' ? 500 : null);
 
-    const options = {
-      responsive: true, maintainAspectRatio: false,
+        const options = {
+      responsive: true,
+      maintainAspectRatio: false,
       animation: { duration: 0 },
       interaction: { mode: 'nearest', intersect: false },
       scales: {
@@ -348,47 +387,189 @@ function activeYearsMD() {
           type: 'linear', min: 0, max: 12,
           ticks: { stepSize: 1, callback: v => Number.isInteger(v) ? MONTHS_LACT[v] : '' }
         },
-        //y: { beginAtZero: false, grace: '5%' }
-
         y: {
-            beginAtZero: false,
-            grace: '5%',
-            title: { display: !!unit, text: unit }   // ← titolo asse Y con l’unità giusta
-         }
-
+          beginAtZero: false,
+          grace: '5%',
+          title: { display: !!unit, text: unit }
+        }
       },
-      
-      
-  plugins: {
-  legend: { display: false },
-  tooltip: {
-    callbacks: {
-      title(items) {
-        const d = new Date(items[0].raw.date);
-        const dd = String(d.getDate()).padStart(2, '0');
-        const mm = String(d.getMonth() + 1).padStart(2, '0');
-        return `${dd}/${mm}`;
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            title(items) {
+              const d = new Date(items[0].raw.date);
+              const dd = String(d.getDate()).padStart(2, '0');
+              const mm = String(d.getMonth() + 1).padStart(2, '0');
+              return `${dd}/${mm}`;
+            },
+            label(ctx) {
+              const v = ctx.parsed.y;
+              return `${v}`;
+            }
+          }
+        }
       },
-      label(ctx) {
-        const v = ctx.parsed.y;
-        return `${v}`;
-      }
-    }
-  }
-},
-
-      
-      
-         
-
-
       elements: { line: { tension: .25 } }
     };
+
+    // Annotazioni: linea limite per cellule/cbt e bande urea
+    const annotations = {};
+    if (limitLine != null) {
+      annotations.limit = {
+        type: 'line',
+        yMin: limitLine,
+        yMax: limitLine,
+        borderColor: '#ef4444',
+        borderWidth: 2,
+        borderDash: [6, 4],
+        label: {
+          enabled: true,
+          content: 'Limite ' + limitLine,
+          position: 'end',
+          backgroundColor: 'rgba(239,68,68,0.18)',
+          color: '#ef4444'
+        }
+      };
+    }
+    if (kpiSel === 'urea') {
+      const solid = {
+        low: 'rgba(239,68,68,0.32)',        // <30 rosso più intenso
+        green: 'rgba(34,197,94,0.18)',
+        yellowLow: 'rgba(251,191,36,0.26)', // 30-36 giallo più visibile
+        yellowHigh: 'rgba(251,191,36,0.26)',// 44-50 giallo più visibile
+        high: 'rgba(239,68,68,0.32)'        // >50 rosso più intenso
+      };
+      const grad = (ctx, from, to) => {
+        const area = ctx?.chart?.chartArea;
+        const canvas = ctx?.chart?.ctx;
+        if (!area || !canvas) return to;
+        const g = canvas.createLinearGradient(0, area.bottom, 0, area.top);
+        g.addColorStop(0, from);
+        g.addColorStop(1, to);
+        return g;
+      };
+      const clamp = (ctx, v) => {
+        const s = ctx?.chart?.scales?.y;
+        if (!s) return v;
+        if (v < s.min) return s.min;
+        if (v > s.max) return s.max;
+        return v;
+      };
+
+      annotations.ureaLow = {
+        type: 'box',
+        yMin: (ctx) => clamp(ctx, 0),
+        yMax: (ctx) => clamp(ctx, 30),
+        backgroundColor: solid.low,
+        borderWidth: 0
+      };
+      annotations.ureaMidLow = {
+        type: 'box',
+        yMin: (ctx) => clamp(ctx, 30),
+        yMax: (ctx) => clamp(ctx, 36),
+        backgroundColor: (ctx) => grad(ctx, 'rgba(239,68,68,0.32)', solid.yellowLow),
+        borderWidth: 0
+      };
+      annotations.ureaMid = {
+        type: 'box',
+        yMin: (ctx) => clamp(ctx, 36),
+        yMax: (ctx) => clamp(ctx, 44),
+        backgroundColor: solid.green,
+        borderWidth: 0
+      };
+      annotations.ureaMidHigh = {
+        type: 'box',
+        yMin: (ctx) => clamp(ctx, 44),
+        yMax: (ctx) => clamp(ctx, 50),
+        backgroundColor: solid.yellowHigh, // fascia 44-50 resta gialla
+        borderWidth: 0
+      };
+      annotations.ureaHigh = {
+        type: 'box',
+        yMin: (ctx) => clamp(ctx, 50),
+        yMax: (ctx) => clamp(ctx, Number.POSITIVE_INFINITY),
+        backgroundColor: solid.high,
+        borderWidth: 0
+      };
+    } else if (kpiSel === 'rapporto') {
+      // banda verde 1.0-1.4, rosso fuori; etichette di rischio
+      const clamp = (ctx, v) => {
+        const s = ctx?.chart?.scales?.y;
+        if (!s) return v;
+        if (v < s.min) return s.min;
+        if (v > s.max) return s.max;
+        return v;
+      };
+      annotations.ratioLow = {
+        type: 'box',
+        yMin: (ctx) => clamp(ctx, ctx?.chart?.scales?.y?.min ?? Number.NEGATIVE_INFINITY),
+        yMax: (ctx) => clamp(ctx, 1),
+        backgroundColor: 'rgba(239,68,68,0.25)',
+        borderWidth: 0,
+        label: {
+          display: true,
+          content: 'Rischio subacidosi',
+          position: 'center',
+          color: '#fff',
+          backgroundColor: 'rgba(239,68,68,0.65)',
+          font: { size: 12, weight: '600' }
+        }
+      };
+      annotations.ratioMid = {
+        type: 'box',
+        yMin: (ctx) => clamp(ctx, 1),
+        yMax: (ctx) => clamp(ctx, 1.4),
+        backgroundColor: 'rgba(34,197,94,0.18)',
+        borderWidth: 0
+      };
+      annotations.ratioHigh = {
+        type: 'box',
+        yMin: (ctx) => clamp(ctx, 1.4),
+        yMax: (ctx) => clamp(ctx, ctx?.chart?.scales?.y?.max ?? Number.POSITIVE_INFINITY),
+        backgroundColor: 'rgba(239,68,68,0.25)',
+        borderWidth: 0,
+        label: {
+          display: true,
+          content: 'Rischio Ketosi',
+          position: 'center',
+          color: '#fff',
+          backgroundColor: 'rgba(239,68,68,0.65)',
+          font: { size: 12, weight: '600' }
+        }
+      };
+    }
+    options.plugins.annotation = { annotations };
 
     chart = new Chart(ctx, { type: 'line', data: { datasets }, options });
   }
 
   // ---------- wiring ----------
+
+  // Gestione dinamica dell'opzione "rapporto" solo in vista Performance
+  const RATIO_VALUE = 'rapporto';
+  function ensureRatioOption() {
+    const sel = document.getElementById('indicatore');
+    if (!sel) return;
+    const exists = sel.querySelector(`option[value="${RATIO_VALUE}"]`);
+    if (!exists) {
+      const opt = document.createElement('option');
+      opt.value = RATIO_VALUE;
+      opt.textContent = 'Rapporto grassi/proteine';
+      // inserisci in fondo ai KPI
+      sel.appendChild(opt);
+    }
+  }
+  function removeRatioOption() {
+    const sel = document.getElementById('indicatore');
+    if (!sel) return;
+    const exists = sel.querySelector(`option[value="${RATIO_VALUE}"]`);
+    if (exists) exists.remove();
+    if (sel.value === RATIO_VALUE) {
+      sel.value = 'grassi';
+      sel.dispatchEvent(new Event('change'));
+    }
+  }
   function bind() {
     if (bound) return; // evita doppi binding
     bound = true;
@@ -400,6 +581,7 @@ function activeYearsMD() {
     // quando entri in "Miei dati" disegna
     if (miei) miei.addEventListener('change', () => {
       if (miei.checked)  {
+        ensureRatioOption();
         if (toggle) toggle.dataset.active = 'miei'; 
         setTimeout(render, 0);
       }
@@ -411,7 +593,7 @@ function activeYearsMD() {
       if (document.getElementById('view-miei')?.classList.contains('active')) render();
     });
 
-    // osserva cambio azienda (se l’header cambia testo)
+    // osserva cambio azienda (se lâ€™header cambia testo)
     const hdr = document.getElementById('aziendaHeader');
     if (hdr && 'MutationObserver' in window) {
       const mo = new MutationObserver(() => {
@@ -429,12 +611,41 @@ function activeYearsMD() {
       }
     }, 600);
 
-    // se all’avvio la vista è già attiva, disegna
+    // se allâ€™avvio la vista Ã¨ giÃ  attiva, disegna
     const active = document.getElementById('viewToggle')?.dataset?.active === 'miei';
-    if (active) render();
+    if (active) { ensureRatioOption(); render(); } else { removeRatioOption(); }
 
     if (conf) conf.addEventListener('change', () => {
-    if (conf.checked && toggle) toggle.dataset.active = 'conf';
+      if (conf.checked && toggle) toggle.dataset.active = 'conf';
+      if (conf.checked) {
+        const sel = document.getElementById('indicatore');
+        const wasRatio = sel && sel.value === RATIO_VALUE;
+        if (wasRatio) {
+          // rientro in benchmark: porta il KPI a grassi e resetta il periodo alla lattazione più recente
+          if (typeof didInitialLacAutoSelect !== 'undefined') {
+            didInitialLacAutoSelect = false; // forzare auto-selezione ultima lattazione
+          }
+          sel.value = 'grassi';
+          sel.dispatchEvent(new Event('change'));
+          removeRatioOption();
+          if (typeof rebuildLactationMenu === 'function') {
+            rebuildLactationMenu(false); // forza ultima lattazione disponibile
+          }
+          const presetEl = document.getElementById('distPreset');
+          if (presetEl) {
+            // seleziona esplicitamente l'ultima lattazione disponibile (escludendo "custom")
+            const lacOptions = Array.from(presetEl.options).filter(o => o.value.startsWith('lac:'));
+            if (lacOptions.length) {
+              const last = lacOptions[lacOptions.length - 1];
+              presetEl.value = last.value;
+              if (window.state) window.state.histPeriod = { type: 'lactation', start: Number(last.value.replace('lac:','')) };
+            }
+            presetEl.dispatchEvent(new Event('change'));
+          }
+          return;
+        }
+        removeRatioOption();
+      }
     });
 
 
@@ -448,3 +659,4 @@ function activeYearsMD() {
 
   window.addEventListener('DOMContentLoaded', waitRaw);
 })();
+

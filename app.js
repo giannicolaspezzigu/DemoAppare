@@ -1183,12 +1183,13 @@ function updatePR(rows) {
   // Sfondo PR (bande colorate) invertito se KPI Ã¨ "lower is better"
   (function () {
     var isLower = lowerIsBetter(state.currentKpi);
+    var isUrea = state.currentKpi === 'urea';
     var annRoot = prChart.options?.plugins?.annotation;
     var ann     = annRoot?.annotations;
     if (ann && ann.low && ann.mid && ann.high) {
-      ann.low.backgroundColor  = isLower ? 'rgba(34,197,94,0.12)' : 'rgba(239,68,68,0.12)';
-      ann.mid.backgroundColor  = 'rgba(245,158,11,0.12)';
-      ann.high.backgroundColor = isLower ? 'rgba(239,68,68,0.12)' : 'rgba(34,197,94,0.12)';
+      ann.low.backgroundColor  = isUrea ? 'rgba(0,0,0,0)' : (isLower ? 'rgba(34,197,94,0.12)' : 'rgba(239,68,68,0.12)');
+      ann.mid.backgroundColor  = isUrea ? 'rgba(0,0,0,0)' : 'rgba(245,158,11,0.12)';
+      ann.high.backgroundColor = isUrea ? 'rgba(0,0,0,0)' : (isLower ? 'rgba(239,68,68,0.12)' : 'rgba(34,197,94,0.12)');
     }
   })();
 
@@ -2136,7 +2137,8 @@ function showCredit() {
     boxShadow: '0 20px 60px rgba(0,0,0,0.35), 0 0 0 1px rgba(59,130,246,0.25)',
     color: '#e2e8f0',
     fontFamily: 'Inter, system-ui, -apple-system, sans-serif',
-    overflow: 'hidden'
+    overflow: 'hidden',
+    textAlign: 'center'
   });
 
   var accent = document.createElement('div');
@@ -2165,7 +2167,8 @@ function showCredit() {
     fontSize: '14px',
     lineHeight: '1.6',
     color: '#cbd5e1',
-    marginBottom: '10px'
+    marginBottom: '10px',
+    textAlign: 'center'
   });
   body.innerHTML = [
     'Prototipo realizzato da Team App\u00e0re',
@@ -2179,12 +2182,12 @@ function showCredit() {
     textAlign: 'center'
   });
   var img = document.createElement('img');
-  img.src = 'landing/background.jpg'; // immagine locale (fallback hi-tech)
-  img.alt = 'Universit\u00e0 di Sassari';
+  img.src = 'landing/dipartimento.png';
+  img.alt = 'Dipartimento di Medicina Veterinaria';
   Object.assign(img.style, {
-    maxWidth: '120px',
-    width: '60%',
-    filter: 'drop-shadow(0 6px 12px rgba(0,0,0,0.35))'
+    maxWidth: '260px',
+    width: '80%',
+    filter: 'drop-shadow(0 12px 22px rgba(0,0,0,0.30))'
   });
   img.onerror = function() { imgWrap.remove(); };
   imgWrap.appendChild(img);
@@ -2233,4 +2236,7 @@ function showCredit() {
   btn.addEventListener('mouseleave', function() { btn.style.opacity = '1'; });
   btn.addEventListener('click', showCredit);
 })();
+
+
+
 
