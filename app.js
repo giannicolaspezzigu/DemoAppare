@@ -952,7 +952,7 @@ function ensureAziendaSelector() {
 
       if (hadOnlyText) {
         var lab = document.createElement('span');
-        lab.textContent = 'Azienda:';
+       // lab.textContent = 'Azienda:';
         lab.style.fontWeight = '600';
         lab.style.color = '#334155';
         wrap.appendChild(lab);
@@ -2236,6 +2236,7 @@ function showCredit() {
   btn.addEventListener('mouseleave', function() { btn.style.opacity = '1'; });
   btn.addEventListener('click', showCredit);
 })();
+
 
 
 
